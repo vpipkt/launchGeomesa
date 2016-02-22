@@ -139,8 +139,8 @@ EOF
 
 # Put on HDFS, remove local files 
 cd ..
-HADOOP_USER=hdfs hadoop fs -mkdir -p /tmp/sample
-HADOOP_USER=hdfs hadoop fs -put hdfs_sample/* ${namenode}/tmp/sample/
+sudo -u hdfs -i  hadoop fs -mkdir -p /tmp/sample
+sudo -u hdfs -i  hadoop fs -put hdfs_sample/* ${namenode}/tmp/sample/
 rm -rf hdfs_sample
 
 # Run ingest
@@ -149,4 +149,4 @@ $GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c 
 rm dist.conf
 
 # Sample export
-$GEOMESA_HOME/bin/geomesa export -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -f example-tsv
+$GEOMESA_HOME/bin/geomesa export -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -f example-tsv 
