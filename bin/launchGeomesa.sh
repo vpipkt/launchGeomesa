@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # pick up variables from conf file  
-source ./conf/launchgm.conf
+source ./conf/launchGeomesa.conf
 echo lfs: ${gm_dist_lfs}
 
 mkdir pkg 

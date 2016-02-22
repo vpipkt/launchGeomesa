@@ -2,7 +2,7 @@
 
 GEOMESA_HOME=$1
 
-source ./conf/launchgm.conf
+source ./conf/launchGeomesa.conf
 
 # Write out geomesa conf file for sft and converter
 cat <<EOF >>dist.conf
