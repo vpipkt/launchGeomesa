@@ -3,7 +3,9 @@
 # pick up variables from conf file  
 source ./conf/launchGeomesa.conf
 
-mkdir pkg 
+if [ ! -d pkg ]; then
+    mkdir pkg 
+fi 
 
 if [ ! -z "${gm_dist_lfs}" ]; then
   cp ${gm_dist_lfs} pkg
@@ -19,21 +21,22 @@ export GEOMESA_HOME="$(pwd)/../geomesa-tools-${gm_version}"
 # this should print geomesa build date etc
 $GEOMESA_HOME/bin/geomesa version
 
-read -p "did this print geomesa version?"
-
 # set up accumulo namespace
 echo Deploying geomesa accumulo runtime on hdfs for namespace ${gm_namespace}
-chown hdfs pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar
+cp  pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar /tmp
+chown hdfs /tmp/geomesa-accumulo-distributed-runtime-${gm_version}.jar
 sudo -u hdfs -i hadoop fs -mkdir -p /accumulo/classpath/${gm_namespace}
-sudo -u hdfs -i hadoop fs -put pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar ${namenode}/accumulo/classpath/${gm_namespace}/
-
-read -p "Did geomesa dist get put to hdfs?"
+sudo -u hdfs -i hadoop fs -put /tmp/geomesa-accumulo-distributed-runtime-${gm_version}.jar ${namenode}/accumulo/classpath/${gm_namespace}/
 
 
-echo create accumulo namespace
+echo delete and create accumulo namespace 
 # build out accumulo-shell script 
+if [ -e bin/accumulo ]; then
+   rm bin/accumulo
+fi
+
 cat <<EOF >>bin/accumulo
-deletenamespace ${gm_namespace} f
+deletenamespace -f ${gm_namespace} 
 createnamespace ${gm_namespace}
 grant NameSpace.CREATE_TABLE -ns ${gm_namespace} -u ${accumulo_user}
 config -s general.vfs.context.classpath.${gm_namespace}=${namenode}/accumulo/classpath/${gm_namespace}/[^.].*.jar
@@ -43,10 +46,10 @@ EOF
 
 accumulo shell -u ${accumulo_user} -p ${accumulo_password} -f ./bin/accumulo
 
-read -p "Accumulo classpath set up ok?"
 
 echo Test local ingest
 $GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s example-csv -C example-csv $GEOMESA_HOME/examples/ingest/csv/example.csv
+
 
 # this will test distributed ingest
 ./bin/hdfs_ingest.sh $GEOMESA_HOME

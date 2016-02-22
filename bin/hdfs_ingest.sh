@@ -5,18 +5,17 @@ GEOMESA_HOME=$1
 source ./conf/launchGeomesa.conf
 
 # Write out geomesa conf file for sft and converter
-cat <<EOF >>dist.conf
-{
-	sft = {
-		type-name = "example-tsv"
+cat <<EOF >>/tmp/hdfsExample.sft
+geomesa.sfts.hdfsExample = {          
 		attributes = [
 			{ name = "pointid", type = Integer }
 			{ name = "geom", type = Point, srid = 4326 }
 			{ name = "dtg", type = Date }
 		]
-	}
-	converter = {
-		name = "simulated"
+  }
+EOF
+cat <<EOF >>/tmp/hdfsExample.convert
+geomesa.converters.hdfsExample = {
 		type = "delimited-text"
 		format = "TSV"
 		id-field = "uuid()"
@@ -25,15 +24,13 @@ cat <<EOF >>dist.conf
 			{ name = "geom", transform = "point(\$3::double, \$4::double)" }
 			{ name = "dtg", transform = "date('YYYY-MM-dd HH:mm:ss', \$2)" }
 		]
-	}
 }
 EOF
 
 # Write out 10 small files to hdfs
-mkdir hdfs_sample
-cd hdfs_sample
+mkdir /tmp/hdfs_sample
 
-cat <<EOF >>data1.tsv
+cat <<EOF >>/tmp/hdfs_sample/data1.tsv
 0	2014-03-24 04:50:25	-169.709189040586	-7.09094132995233
 1	2015-05-15 13:30:51	80.1075420062989	82.5987977371551
 2	2016-01-01 23:27:18	-104.515173733234	44.0032548713498
@@ -46,7 +43,7 @@ cat <<EOF >>data1.tsv
 9	2015-08-17 22:51:59	-7.97786945477128	-49.554579379037
 EOF
 
-cat <<EOF >>data2.tsv
+cat <<EOF >>/tmp/hdfs_sample/data2.tsv
 10	2015-09-06 07:21:42	159.257031474262	-14.8856369196437
 11	2014-06-19 13:51:42	14.614673210308	-58.393094711937
 12	2015-03-22 20:47:54	139.438164420426	67.3600661498494
@@ -59,7 +56,7 @@ cat <<EOF >>data2.tsv
 19	2014-04-13 22:09:47	-33.0797226727009	-83.6028232448734
 EOF
 
-cat <<EOF >>data3.tsv
+cat <<EOF >>/tmp/hdfs_sample/data3.tsv
 20	2014-01-24 13:38:56	103.557175928727	67.2971420013346
 21	2015-10-22 20:51:40	158.681027004495	-17.4581306264736
 22	2014-04-26 04:09:53	131.48791719228	48.2244807807729
@@ -72,7 +69,7 @@ cat <<EOF >>data3.tsv
 29	2015-01-12 21:10:39	-121.797599019483	27.5861034821719
 EOF
 
-cat <<EOF >>data4.tsv
+cat <<EOF >>/tmp/hdfs_sample/data4.tsv
 30	2015-05-18 08:22:21	123.896695543081	-52.3807154526003
 31	2014-03-19 16:04:33	-27.0356354769319	64.7607856220566
 32	2015-04-03 01:57:44	52.0819870010018	11.5333008067682
@@ -85,7 +82,7 @@ cat <<EOF >>data4.tsv
 39	2015-08-14 08:47:10	-65.7431509997696	-55.7506549125537
 EOF
 
-cat <<EOF >>data5.tsv
+cat <<EOF >>/tmp/hdfs_sample/data5.tsv
 40	2014-06-13 18:59:25	-149.29481039755	32.6784200617112
 41	2015-04-05 18:58:22	63.0127418506891	65.8911071298644
 42	2015-04-22 21:49:45	103.007338000461	-73.1178724882193
@@ -98,7 +95,7 @@ cat <<EOF >>data5.tsv
 49	2014-02-02 01:37:41	154.886480346322	-8.36667434545234
 EOF
 
-cat <<EOF >>data6.tsv
+cat <<EOF >>/tmp/hdfs_sample/data6.tsv
 50	2014-05-25 21:17:51	34.8832583706826	15.4320467682555
 51	2015-05-06 11:55:13	163.169603794813	51.3611447019503
 52	2015-06-07 09:02:52	57.1250683441758	55.4557868163101
@@ -111,7 +108,7 @@ cat <<EOF >>data6.tsv
 59	2014-06-17 06:58:18	-54.8418476432562	52.118767562788
 EOF
 
-cat <<EOF >>data7.tsv
+cat <<EOF >>/tmp/hdfs_sample/data7.tsv
 60	2014-02-14 15:53:51	-28.0847258772701	46.5604267711751
 61	2015-01-07 03:06:29	-91.517915809527	48.5319197899662
 62	2015-07-11 13:09:30	156.774185942486	59.5437879953533
@@ -124,7 +121,7 @@ cat <<EOF >>data7.tsv
 69	2014-07-03 20:01:49	-70.3157752286643	67.3648741585203
 EOF
 
-cat <<EOF >>data8.tsv
+cat <<EOF >>/tmp/hdfs_sample/data8.tsv
 70	2015-02-12 17:18:54	145.944639304653	-34.1784508456476
 71	2014-02-09 05:11:20	-150.564714325592	-41.7358683259226
 72	2015-11-20 19:51:03	-31.0141260176897	17.217592925299
@@ -138,15 +135,15 @@ cat <<EOF >>data8.tsv
 EOF
 
 # Put on HDFS, remove local files 
-cd ..
+chown -R hdfs /tmp/hdfs_sample 
 sudo -u hdfs -i  hadoop fs -mkdir -p /tmp/sample
-sudo -u hdfs -i  hadoop fs -put hdfs_sample/* ${namenode}/tmp/sample/
-rm -rf hdfs_sample
+sudo -u hdfs -i  hadoop fs -put /tmp/hdfs_sample/* ${namenode}/tmp/sample/
+sudo -u hdfs -i rm -rf /tmp/hdfs_sample
 
 # Run ingest
-$GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s ./dist.conf -C ./dist.conf ${namenode}/tmp/sample/*
+$GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s /tmp/hdfsExample.sft -C /tmp/hdfsExample.convert ${namenode}/tmp/sample/*
 
-rm dist.conf
+rm /tmp/hdfsExample*
 
 # Sample export
-$GEOMESA_HOME/bin/geomesa export -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -f example-tsv 
+$GEOMESA_HOME/bin/geomesa export -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -f hdfsExample
