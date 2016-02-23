@@ -1,0 +1,6 @@
+deletenamespace -f geomesa120 
+createnamespace geomesa120
+grant NameSpace.CREATE_TABLE -ns geomesa120 -u root
+config -s general.vfs.context.classpath.geomesa120=hdfs://head:54310/accumulo/classpath/geomesa120/[^.].*.jar
+config -ns geomesa120 -s table.classpath.context=geomesa120
+bye

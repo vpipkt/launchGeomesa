@@ -15,7 +15,7 @@ fi
 
 tar xvfz pkg/${gm_tarball} -C pkg
 tar xvfz pkg/geomesa-${gm_version}/dist/tools/geomesa-tools-${gm_version}-bin.tar.gz -C ..
-chown hdfs pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar
+sudo chown hdfs pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar
 export GEOMESA_HOME="$(pwd)/../geomesa-tools-${gm_version}"
 
 # this should print geomesa build date etc
@@ -24,7 +24,7 @@ $GEOMESA_HOME/bin/geomesa version
 # set up accumulo namespace
 echo Deploying geomesa accumulo runtime on hdfs for namespace ${gm_namespace}
 cp  pkg/geomesa-${gm_version}/dist/accumulo/geomesa-accumulo-distributed-runtime-${gm_version}.jar /tmp
-chown hdfs /tmp/geomesa-accumulo-distributed-runtime-${gm_version}.jar
+sudo chown hdfs /tmp/geomesa-accumulo-distributed-runtime-${gm_version}.jar
 sudo -u hdfs -i hadoop fs -mkdir -p /accumulo/classpath/${gm_namespace}
 sudo -u hdfs -i hadoop fs -put /tmp/geomesa-accumulo-distributed-runtime-${gm_version}.jar ${namenode}/accumulo/classpath/${gm_namespace}/
 

@@ -135,13 +135,13 @@ cat <<EOF >>/tmp/hdfs_sample/data8.tsv
 EOF
 
 # Put on HDFS, remove local files 
-chown -R hdfs /tmp/hdfs_sample 
+sudo chown -R hdfs /tmp/hdfs_sample 
 sudo -u hdfs -i  hadoop fs -mkdir -p /tmp/sample
 sudo -u hdfs -i  hadoop fs -put /tmp/hdfs_sample/* ${namenode}/tmp/sample/
 sudo -u hdfs -i rm -rf /tmp/hdfs_sample
 
 # Run ingest
-$GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s /tmp/hdfsExample.sft -C /tmp/hdfsExample.convert ${namenode}/tmp/sample/*
+sudo -i  $GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s /tmp/hdfsExample.sft -C /tmp/hdfsExample.convert ${namenode}/tmp/sample/*
 
 rm /tmp/hdfsExample*
 
