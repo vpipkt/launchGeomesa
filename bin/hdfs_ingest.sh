@@ -135,13 +135,21 @@ cat <<EOF >>/tmp/hdfs_sample/data8.tsv
 EOF
 
 # Put on HDFS, remove local files 
-sudo chown -R hdfs /tmp/hdfs_sample 
-sudo -u hdfs -i  hadoop fs -mkdir -p /tmp/sample
-sudo -u hdfs -i  hadoop fs -put /tmp/hdfs_sample/* ${namenode}/tmp/sample/
-sudo -u hdfs -i rm -rf /tmp/hdfs_sample
+
+# is the current user in supergroup??
+
+echo "Adding user to supergroup!"
+sudo usermod -a -G supergroup $USER
+
+hadoop fs -mkdir /user/$USER  
+hadoop fs -chown $USER:supergroup /user/$USER 
+echo "Make tmp data dir on hdfs; put data"
+hadoop fs -mkdir -p /user/$USER/sample
+hadoop fs -put /tmp/hdfs_sample/* ${namenode}/user/$USER/sample/
+rm -rf /tmp/hdfs_sample
 
 # Run ingest
-sudo -i  $GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s /tmp/hdfsExample.sft -C /tmp/hdfsExample.convert ${namenode}/tmp/sample/*
+$GEOMESA_HOME/bin/geomesa ingest -u ${accumulo_user} -p ${accumulo_password} -c ${gm_namespace}.${gm_catalog} -s /tmp/hdfsExample.sft -C /tmp/hdfsExample.convert ${namenode}/user/$USER/sample/*
 
 rm /tmp/hdfsExample*
 
