@@ -138,9 +138,11 @@ EOF
 
 # is the current user in supergroup??
 
-echo "Make home dir on hdfs for ec2-user"
-sudo -u hdfs -i hadoop fs -mkdir /user/$USER  #this should be done as hdfs user
-sudo -u hdfs -i hadoop fs -chown $USER:supergroup /user/$USER #also done as hdfs user
+echo "Adding user to supergroup!"
+sudo usermod -a -G supergroup $USER
+
+hadoop fs -mkdir /user/$USER  
+hadoop fs -chown $USER:supergroup /user/$USER 
 echo "Make tmp data dir on hdfs; put data"
 hadoop fs -mkdir -p /user/$USER/sample
 hadoop fs -put /tmp/hdfs_sample/* ${namenode}/user/$USER/sample/
