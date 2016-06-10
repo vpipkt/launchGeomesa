@@ -65,7 +65,7 @@ configure_zookeeper() {
 		ZK_IPADDR=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
 	else
 		# Zookeeper intalled on master node, parse config file to find EMR master node
-		ZK_IPADDR=$(xmllint --xpath "//property[name='yarn.resourcemanager.hostname']/value/text()"  /etc/hadoop/conf/yarn-site.xml)
+		ZK_IPADDR=hdfs getconf -confKey yarn.resourcemanager.hostname
 	fi
 }
 
@@ -123,8 +123,6 @@ configure_accumulo() {
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/gc"
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/tracers"
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/masters"
-	# TODO: remove the master from tserver slaves 
-		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/slaves"
 		sudo -u $USER $INSTALL_DIR/accumulo/bin/accumulo init --clear-instance-name --instance-name $ACCUMULO_INSTANCE --password $USERPW
 	else
 		sudo sh -c "echo $ZK_IPADDR > $INSTALL_DIR/accumulo/conf/monitor"
@@ -155,17 +153,6 @@ is_accumulo_available() {
 	return $?
 }
 
-install_image_libs() {
-	pushd /etc/alternatives/java_sdk
-	sudo curl -O $JAI_URL
-	sudo curl -O $IMAGEIO_URL
-	sudo chmod +x *.bin
-	# Magic spells to unzip and install with auto-confirm of terms and bypassing unzip error with export
-	sudo ./jai-*.bin >/dev/null < <(echo y) >/dev/null < <(echo y)
-	sudo bash -c "export _POSIX2_VERSION=199209; ./jai_*.bin >/dev/null < <(echo y) >/dev/null < <(echo y)"
-	popd
-}
-
 write_accumulo_namespace_script(){
 # Create a script for accumulo to config namespace goodies.
 GM_NAMESPACE="geomesa_"
@@ -177,7 +164,8 @@ cat <<EOF >>/tmp/config-namespace
 createnamespace ${GM_NAMESPACE}
 grant NameSpace.CREATE_TABLE -ns ${GM_NAMESPACE} -u root
 config -s general.vfs.context.classpath.${GM_NAMESPACE}=${namenode}/accumulo/classpath/geomesa/${GEOMESA_VERSION}/[^.].*.jar 
-config -ns ${GM_NAMESPACE} -s table.classpath.context=${GM_NAMESPACE} bye
+config -ns ${GM_NAMESPACE} -s table.classpath.context=${GM_NAMESPACE} 
+bye
 EOF
 }
 
@@ -192,9 +180,11 @@ install_geomesa(){
 
 	tar xvfz ${GEOMESA_TARBALL} 
 	tar xvfz geomesa-${GEOMESA_VERSION}/dist/tools/geomesa-tools-${GEOMESA_VERSION}-bin.tar.gz -C /home/hadoop/
-	# TODO: put this in everybody's bashrc?
+	export GEOMESA_HOME="/home/hadoop/geomesa-tools-${GEOMESA_VERSION}"
 	echo "export GEOMESA_HOME='/home/hadoop/geomesa-tools-${GEOMESA_VERSION}'" >> /home/hadoop/.bashrc
 	echo 'export PATH=${GEOMESA_HOME}/bin:$PATH' >> /home/hadoop/.bashrc
+	# java, hadoop, zoo, and accumulo homes from accumulo install
+	cat /tmp/acc_env >> /home/hadoop/.bashrc
 
 	# set up accumulo namespace
 	echo Deploying geomesa accumulo runtime on hdfs for namespace ${GM_NAMESPACE}
@@ -204,8 +194,11 @@ install_geomesa(){
 	sudo -u $HDFS_USER hadoop fs -put ${GM_ACCUMULO_JAR} /accumulo/classpath/geomesa/${GEOMESA_VERSION}/
 
 	write_accumulo_namespace_script
-	# note this is the default accumulo root password. See configure_accumulo()
-	accumulo shell -u root -p ${USERPW} -f /tmp/config-namespace
+	${INSTALL_DIR}/accumulo/bin/accumulo shell -u root -p ${USERPW} -f /tmp/config-namespace
 	popd
+	#install shapefile processing libs using geomesa tools scripts
+	/home/hadoop/geomesa-tools-${GEOMESA_VERSION}/bin/install-jai > /dev/null < <(echo y)
+	/home/hadoop/geomesa-tools-${GEOMESA_VERSION}/bin/install-jline > /dev/null < <(echo y)
+	/home/hadoop/geomesa-tools-${GEOMESA_VERSION}/bin/install-imageio-ext > /dev/null < <(echo y)
+	
 }
-

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Bootstrap a GeoWave cluster node
+# Bootstrap a GeoMesa cluster node for Elastic Map Reduce (v4)
 #
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -29,9 +29,6 @@ GEOMESA_DIST_S3="s3://geoint-data/bootstrap/"${GEOMESA_TARBALL}
 #   Otherwise from the locationtech nexus (slow)
 GEOMESA_DIST_LT="https://repo.locationtech.org/content/repositories/geomesa-releases/org/locationtech/geomesa/geomesa-dist/"${GEOMESA_VERSION}"/"${GEOMESA_TARBALL}
 
-# Java JAI and ImageIO URLS
-JAI_URL=http://data.opengeo.org/suite/jai/jai-1_1_3-lib-linux-amd64-jdk.bin
-IMAGEIO_URL=http://data.opengeo.org/suite/jai/jai_imageio-1_1-lib-linux-amd64-jdk.bin
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Step #1: Source externalized commands into library functions for clarity
@@ -44,7 +41,7 @@ source /tmp/bootstrap-geomesa-lib.sh
 THIS_SCRIPT="$(realpath "${BASH_SOURCE[0]}")"
 RUN_FLAG="${THIS_SCRIPT}.run"
 # On first boot skip past this script to allow EMR to set up the environment. Set a callback
-# which will poll for availability of HDFS and then install Accumulo and then GeoWave
+# which will poll for availability of HDFS and then install Accumulo and then GeoMesa
 if [ ! -f "$RUN_FLAG" ]; then
 	touch "$RUN_FLAG"
 	TIMEOUT= is_master && TIMEOUT=3 || TIMEOUT=4
@@ -56,9 +53,7 @@ fi
 os_tweaks && configure_zookeeper
 create_accumulo_user && install_accumulo && configure_accumulo
 
-# Step #4: Install GeoMesa on master; and imagery libs
-install_image_libs
+# Step #4: Install GeoMesa on master
 if is_master ; then
-#	install_geomesa	
-	echo "INFO:  This node is master"
+	install_geomesa	
 fi
