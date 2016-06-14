@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Installing additional components on an EMR node depends on several config files
-# controlled by the EMR framework which may affect the is_master and configure_zookeeper
+# controlled by the EMR framework which may affect the is_master 
 # functions at some point in the future. I've grouped each unit of work into a function 
 # with a descriptive name to help with understanding and maintainability
 #
@@ -9,7 +9,7 @@
 # You can change these but there is probably no need
 ACCUMULO_INSTANCE=accumulo
 ACCUMULO_HOME="${INSTALL_DIR}/accumulo"
-ZK_IPADDR=
+MASTER_DNSNAME=
 INTIAL_POLLING_INTERVAL=15 # This gets doubled for each attempt up to max_attempts
 HDFS_USER=hdfs
 
@@ -56,18 +56,6 @@ with_backoff() {
   return $exitCode
 }
 
-# Using zookeeper packaged by Apache BigTop for ease of installation
-configure_zookeeper() {
-	if is_master ; then
-		sudo yum -y install zookeeper-server # EMR 4.3.0 includes Apache Bigtop.repo config
-		sudo initctl start zookeeper-server  # EMR uses Amazon Linux which uses Upstart
-		# Zookeeper installed on this node, record internal ip from instance metadata
-		ZK_IPADDR=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-	else
-		# Zookeeper intalled on master node, parse config file to find EMR master node
-		ZK_IPADDR=hdfs getconf -confKey yarn.resourcemanager.hostname
-	fi
-}
 
 # Settings recommended for Accumulo
 os_tweaks() {
@@ -102,8 +90,10 @@ install_accumulo() {
 }
 
 configure_accumulo() {
+	# Requires zookeeper bootstrapped by EMR along with hadoop
+	MASTER_DNSNAME=$(hdfs getconf -confKey yarn.resourcemanager.hostname)
 	sudo cp $INSTALL_DIR/accumulo/conf/examples/${ACCUMULO_TSERVER_OPTS}/native-standalone/* $INSTALL_DIR/accumulo/conf/
-	sudo sed -i "s/<value>localhost:2181<\/value>/<value>${ZK_IPADDR}:2181<\/value>/" $INSTALL_DIR/accumulo/conf/accumulo-site.xml
+	sudo sed -i "s/<value>localhost:2181<\/value>/<value>${MASTER_DNSNAME}:2181<\/value>/" $INSTALL_DIR/accumulo/conf/accumulo-site.xml
 	sudo sed -i '/HDP 2.0 requirements/d' $INSTALL_DIR/accumulo/conf/accumulo-site.xml
 	sudo sed -i "s/\${LOG4J_JAR}/\${LOG4J_JAR}:\/usr\/lib\/hadoop\/lib\/*:\/usr\/lib\/hadoop\/client\/*/" $INSTALL_DIR/accumulo/bin/accumulo
 
@@ -111,7 +101,6 @@ configure_accumulo() {
 	ENV_FILE="export ACCUMULO_HOME=$INSTALL_DIR/accumulo; export HADOOP_HOME=/usr/lib/hadoop; export ACCUMULO_LOG_DIR=$INSTALL_DIR/accumulo/logs; export JAVA_HOME=/usr/lib/jvm/java; export ZOOKEEPER_HOME=/usr/lib/zookeeper; export HADOOP_PREFIX=/usr/lib/hadoop; export HADOOP_CONF_DIR=/etc/hadoop/conf"
 	echo $ENV_FILE > /tmp/acc_env
 	sudo sh -c "cat /tmp/acc_env > $INSTALL_DIR/accumulo/conf/accumulo-env.sh"
-	sudo chown -R $USER:$USER $INSTALL_DIR/accumulo
 	source $INSTALL_DIR/accumulo/conf/accumulo-env.sh
 	sudo -u $USER $INSTALL_DIR/accumulo/bin/build_native_library.sh
 
@@ -123,14 +112,17 @@ configure_accumulo() {
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/gc"
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/tracers"
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/masters"
+		sudo sh -c "echo > $INSTALL_DIR/accumulo/conf/slaves"
 		sudo -u $USER $INSTALL_DIR/accumulo/bin/accumulo init --clear-instance-name --instance-name $ACCUMULO_INSTANCE --password $USERPW
 	else
-		sudo sh -c "echo $ZK_IPADDR > $INSTALL_DIR/accumulo/conf/monitor"
-		sudo sh -c "echo $ZK_IPADDR > $INSTALL_DIR/accumulo/conf/gc"
-		sudo sh -c "echo $ZK_IPADDR > $INSTALL_DIR/accumulo/conf/tracers"
-		sudo sh -c "echo $ZK_IPADDR > $INSTALL_DIR/accumulo/conf/masters"
+		sudo sh -c "echo $MASTER_DNSNAME > $INSTALL_DIR/accumulo/conf/monitor"
+		sudo sh -c "echo $MASTER_DNSNAME > $INSTALL_DIR/accumulo/conf/gc"
+		sudo sh -c "echo $MASTER_DNSNAME > $INSTALL_DIR/accumulo/conf/tracers"
+		sudo sh -c "echo $MASTER_DNSNAME > $INSTALL_DIR/accumulo/conf/masters"
 		sudo sh -c "hostname > $INSTALL_DIR/accumulo/conf/slaves"
 	fi
+
+	sudo chown -R $USER:$USER $INSTALL_DIR/accumulo
 
 	# EMR starts worker instances first so there will be timing issues
 	# Test to ensure it's safe to continue before attempting to start things up
@@ -160,6 +152,7 @@ GM_NAMESPACE="${GM_NAMESPACE}${GEOMESA_VERSION}"
 # Remove periods 
 GM_NAMESPACE=${GM_NAMESPACE//./}
 namenode=$(hdfs getconf -confKey fs.defaultFS)
+
 cat <<EOF >>/tmp/config-namespace
 createnamespace ${GM_NAMESPACE}
 grant NameSpace.CREATE_TABLE -ns ${GM_NAMESPACE} -u root

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Bootstrap a GeoMesa cluster node for Elastic Map Reduce (v4)
-#
+#    - Requires applications: Hadoop and ZooKeeper-Sandbox
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
@@ -31,7 +31,7 @@ GEOMESA_DIST_LT="https://repo.locationtech.org/content/repositories/geomesa-rele
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Step #1: Source externalized commands into library functions for clarity
+# Step #1: Source external library functions 
 if [ ! -f /tmp/bootstrap-geomesa-lib.sh ]; then
 	aws s3 cp s3://geoint-data/emr-get-started/bootstrap/geomesa/bootstrap-geomesa-lib.sh /tmp
 fi
@@ -50,7 +50,7 @@ if [ ! -f "$RUN_FLAG" ]; then
 fi
 
 # Step #3: Get Accumulo running
-os_tweaks && configure_zookeeper
+os_tweaks  
 create_accumulo_user && install_accumulo && configure_accumulo
 
 # Step #4: Install GeoMesa on master
